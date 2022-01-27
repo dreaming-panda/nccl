@@ -28,7 +28,6 @@ namespace {
     const ssize_t* flag = (ssize_t*)args->recvbuff;
     if(flag[0] == 0)
     {
-    assert(false);
     Primitives<T, RedOp, FanSymmetric<1>, 0, Proto>
       prims(tid, nthreads, &ring->prev, &ring->next, args->sendbuff, args->recvbuff, args->coll.redOpArg);
 
@@ -70,7 +69,6 @@ namespace {
     }
     }
     else {
-    assert(Proto::Id == NCCL_PROTO_LL);
     const int buff_offset = nranks + nranks + 1;
     ssize_t* sizeptr = (ssize_t*)args->sendbuff;
     ssize_t* offsetptr = sizeptr + nranks;
@@ -95,7 +93,7 @@ namespace {
       
       ssize_t realChunkSize;
       if (Proto::Id == NCCL_PROTO_SIMPLE) {
-        realChunkSize = min(chunkSize, divUp(size-gridOffset, nChannels));
+        realChunkSize = min(chunkSize, divUp(min_size-gridOffset, nChannels));
         realChunkSize = roundUp(realChunkSize, (nthreads-WARP_SIZE)*sizeof(uint64_t)/sizeof(T));
       }
       else if (Proto::Id == NCCL_PROTO_LL)
@@ -104,7 +102,10 @@ namespace {
         realChunkSize = roundUp(realChunkSize, (nthreads-WARP_SIZE)*sizeof(uint64_t)/sizeof(T));
       }
       else if (Proto::Id == NCCL_PROTO_LL128)
-        realChunkSize = min(divUp(size-gridOffset, nChannels*minChunkSizeLL128)*minChunkSizeLL128, chunkSize);
+      {
+        realChunkSize = min(chunkSize, divUp(min_size-gridOffset, nChannels));
+        realChunkSize = roundUp(realChunkSize, (nthreads-WARP_SIZE)*sizeof(uint64_t)/sizeof(T));
+      }
       realChunkSize = int(realChunkSize);
 
       ssize_t chunkOffset = gridOffset + bid*int(realChunkSize);
@@ -181,4 +182,3 @@ struct RunWorkElement<ncclFuncReduceScatter, T, RedOp, NCCL_ALGO_RING, NCCL_PROT
     runRing<T, RedOp, ProtoLL128>(args);
   }
 };
-
